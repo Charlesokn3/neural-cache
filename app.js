@@ -6,6 +6,7 @@
 // - Supabase config -
 var SUPABASE_URL = 'https://kidowzxxiccozyphwtyf.supabase.co';
 var SUPABASE_KEY = 'sb_publishable_N0fTBExIwe_RC4qVbTI5fw_jtN0Q8Gw';
+var SITE_URL = 'https://charlesokn3.github.io/neural-cache';
 var sb          = null;
 var currentUser = null;
 
@@ -85,8 +86,8 @@ function authSubmit() {
 
   var promise = isLogin
     ? sb.auth.signInWithPassword({ email: email, password: pass })
-    : sb.auth.signUp({ email: email, password: pass });
-
+    : sb.auth.signUp({ email: email, password: pass, options: { emailRedirectTo: SITE_URL } });
+   
   promise.then(function(res) {
     btn.disabled = false;
     btn.textContent = isLogin ? 'Sign In' : 'Create Account';
