@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Cache - Budget Tracker</title>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f5e642">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Neural Cache">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    /* - Auth screen - */
+    #auth-screen {
+      position: fixed; inset: 0; z-index: 10000;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-box {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 2px;
+      padding: 2.5rem 2rem;
+      width: 100%; max-width: 380px;
+      position: relative;
+    }
+    .auth-box::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0;
+      height: 2px; background: var(--yellow); opacity: .6;
+    }
+    .auth-logo {
+      font-size: 28px; font-weight: 700; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--yellow); margin-bottom: 4px;
+    }
+    .auth-logo span { color: var(--cyan); }
+    .auth-sub {
+      font-family: 'Share Tech Mono', monospace; font-size: 10px;
+      color: var(--text3); letter-spacing: .12em; margin-bottom: 2rem;
+    }
+    .auth-title {
+      font-family: 'Share Tech Mono', monospace; font-size: 11px;
+      color: var(--cyan); letter-spacing: .1em; text-transform: uppercase;
+      margin-bottom: 1.25rem;
+    }
+    .auth-field { margin-bottom: 12px; }
+    .auth-field label {
+      display: block; font-family: 'Share Tech Mono', monospace;
+      font-size: 9px; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--text3); margin-bottom: 5px;
+    }
+    .auth-field input {
+      width: 100%; padding: 10px 12px;
+      border-radius: 2px; border: 1px solid var(--border2);
+      background: var(--bg4); color: var(--text);
+      font-family: 'Rajdhani', sans-serif; font-size: 15px;
+      outline: none; transition: border .15s;
+    }
+    .auth-field input:focus { border-color: var(--cyan); }
+    .auth-btn {
+      width: 100%; padding: 11px;
+      border-radius: 2px; border: 1px solid var(--yellow);
+      background: var(--yellow-dim); color: var(--yellow);
+      font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700;
+      letter-spacing: .1em; text-transform: uppercase;
+      cursor: pointer; transition: all .15s; margin-top: 4px;
+    }
+    .auth-btn:hover { background: var(--yellow); color: var(--bg); }
+    .auth-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .auth-switch {
+      margin-top: 1.25rem; text-align: center;
+      font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text3);
+    }
+    .auth-switch button {
+      background: none; border: none; color: var(--cyan);
+      cursor: pointer; font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; text-decoration: underline;
+    }
+
+    /* user bar */
+    .user-bar {
+      font-family: 'Share Tech Mono', monospace; font-size: 10px;
+      color: var(--text3); display: flex; align-items: center; gap: 10px;
+    }
+    .signout-btn {
+      background: transparent; border: 1px solid var(--border2);
+      color: var(--text3); padding: 4px 10px; border-radius: 2px;
+      font-family: 'Share Tech Mono', monospace; font-size: 10px;
+      cursor: pointer; letter-spacing: .06em; transition: all .15s;
+    }
+    .signout-btn:hover { border-color: var(--pink); color: var(--pink); }
+  </style>
+</head>
+<body>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- - AUTH SCREEN - -->
+  <div id="auth-screen" style="display:none">
+    <div class="auth-box">
+      <div class="auth-logo">N<span>C</span></div>
+      <div class="auth-sub">// neural_cache</div>
+      <div class="auth-title" id="auth-title">// sign_in</div>
+      <div id="auth-mode" data-mode="login"></div>
+
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="auth-email" placeholder="you@email.com">
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="auth-pass" placeholder="********"
+               onkeydown="if(event.key==='Enter') authSubmit()">
+      </div>
+      <button class="auth-btn" id="auth-btn" onclick="authSubmit()">Sign In</button>
+
+      <div class="auth-switch">
+        <span id="auth-switch-text">Don't have an account?</span>
+        <button id="auth-switch-btn" onclick="toggleAuthMode()">Create one</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- - APP SCREEN - -->
+  <div class="shell" id="app-screen" style="display:none">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="logo">
+        <div class="logo-text">
+          <div class="logo-mark">N<span>C</span></div>
+          <div class="logo-sub">// neural_cache</div>
+        </div>
+        <button class="toggle-btn" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+          <svg id="toggle-icon" width="16" height="16" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="9" y1="3" x2="9" y2="21"/>
+            <polyline points="15 9 19 12 15 15" id="toggle-arrow"/>
+          </svg>
+        </button>
+      </div>
+      <div class="nav">
+        <div class="nav-item active" onclick="switchTab('tx',this)">
+          <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/>
+            <line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+          </svg>
+          <span class="nav-label">Transactions</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('piggy',this)">
+          <svg class="nav-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 9a7 7 0 1 0-13.6 2.3C4.5 12.3 4 13.1 4 14v1a2 2 0 0 0 2 2h1l1 3h4l1-3h1a2 2 0 0 0 2-2v-1c0-.4-.1-.8-.2-1.1A7 7 0 0 0 19 9z"/>
+            <circle cx="16" cy="8" r="1" fill="currentColor"/><path d="M20 9h2"/>
+          </svg>
+          <span class="nav-label">Piggy Bank</span>
+        </div>
+      </div>
+      <div class="sidebar-footer"><p>// data: supabase</p></div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main" id="main">
+      <div class="topbar">
+        <div class="page-title" id="page-title">Transactions</div>
+        <div class="topbar-right">
+          <select class="period-select" id="period-select" onchange="onPeriodChange()">
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Biweekly</option>
+            <option value="monthly" selected>Monthly</option>
+          </select>
+          <div class="month-chip" id="period-chip"></div>
+          <button class="clear-btn" onclick="clearData()">&#x2715; clear data</button>
+          <div class="user-bar">
+            <span id="user-email"></span>
+            <button class="signout-btn" onclick="signOut()">sign out</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+
+        <!-- TRANSACTIONS PANEL -->
+        <div id="panel-tx">
+          <div class="stats">
+            <div class="stat"><div class="stat-lbl">Income</div><div class="stat-val g" id="s-inc">$0.00</div></div>
+            <div class="stat"><div class="stat-lbl">Expenses</div><div class="stat-val r" id="s-exp">$0.00</div></div>
+            <div class="stat"><div class="stat-lbl">Piggy Bank</div><div class="stat-val gr" id="s-pig">$0.00</div></div>
+            <div class="stat"><div class="stat-lbl">Balance</div><div class="stat-val a" id="s-bal">$0.00</div></div>
+          </div>
+
+          <div class="split-block">
+            <div class="split-title">
+              <span>// budget_split</span>
+              <span class="split-warning" id="split-warn"></span>
+            </div>
+            <div class="split-grid">
+              <div class="split-card">
+                <div class="split-card-label needs">Needs</div>
+                <div class="split-pct-row">
+                  <input class="split-pct-input" type="number" id="pct-needs" value="50" min="0" max="100" onchange="onSplitChange()">
+                  <span class="split-pct-label">%</span>
+                </div>
+                <div class="split-bar-track"><div class="split-bar-fill needs" id="bar-needs" style="width:0%"></div></div>
+                <div class="split-amounts"><span id="used-needs">$0.00</span><span id="alloc-needs">/ $0.00</span></div>
+              </div>
+              <div class="split-card">
+                <div class="split-card-label wants">Wants</div>
+                <div class="split-pct-row">
+                  <input class="split-pct-input" type="number" id="pct-wants" value="30" min="0" max="100" onchange="onSplitChange()">
+                  <span class="split-pct-label">%</span>
+                </div>
+                <div class="split-bar-track"><div class="split-bar-fill wants" id="bar-wants" style="width:0%"></div></div>
+                <div class="split-amounts"><span id="used-wants">$0.00</span><span id="alloc-wants">/ $0.00</span></div>
+              </div>
+              <div class="split-card">
+                <div class="split-card-label savings">Savings</div>
+                <div class="split-pct-row">
+                  <input class="split-pct-input" type="number" id="pct-savings" value="20" min="0" max="100" onchange="onSplitChange()">
+                  <span class="split-pct-label">%</span>
+                </div>
+                <div class="split-bar-track"><div class="split-bar-fill savings" id="bar-savings" style="width:0%"></div></div>
+                <div class="split-amounts"><span id="used-savings">$0.00</span><span id="alloc-savings">/ $0.00</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-block">
+            <div class="form-block-title">// add_transaction</div>
+            <div class="type-row">
+              <button class="type-btn inc on" id="btn-inc" onclick="setType('income')">+ Income</button>
+              <button class="type-btn exp"    id="btn-exp" onclick="setType('expense')">- Expense</button>
+            </div>
+            <div class="fields">
+              <div class="field"><label>Description</label><input type="text" id="t-desc" placeholder="e.g. Groceries"></div>
+              <div class="field"><label>Amount ($)</label><input type="number" id="t-amt" placeholder="0.00" min="0" step="0.01"></div>
+              <div class="field"><label>Category</label>
+                <select id="t-cat">
+                  <option>Salary</option><option>Freelance</option><option>Food</option>
+                  <option>Transport</option><option>Housing</option><option>Entertainment</option>
+                  <option>Health</option><option>Other</option>
+                </select>
+              </div>
+              <div class="field" id="split-field" style="display:none">
+                <label>Budget Bucket</label>
+                <select id="t-split" onchange="onSplitSelect()">
+                  <option value="needs">Needs</option>
+                  <option value="wants">Wants</option>
+                  <option value="piggy">Piggy Bank</option>
+                </select>
+              </div>
+              <div class="field"><label>Date</label><input type="date" id="t-date"></div>
+            </div>
+            <div class="piggy-hint" id="piggy-hint">// this expense goes into your piggy bank</div>
+            <button class="submit-btn" onclick="addTx()">Add Transaction</button>
+          </div>
+
+          <div class="tx-wrap">
+            <div id="tx-list"><div class="empty">no_transactions_found</div></div>
+          </div>
+        </div>
+
+        <!-- PIGGY BANK PANEL -->
+        <div id="panel-piggy" style="display:none">
+          <div class="piggy-summary">
+            <div class="piggy-card green">
+              <div>
+                <div class="piggy-card-lbl">Total in piggy bank</div>
+                <div class="piggy-card-val" id="piggy-total">$0.00</div>
+              </div>
+              <div class="piggy-card-icon">🐷</div>
+            </div>
+            <div class="piggy-card pink">
+              <div>
+                <div class="piggy-card-lbl">Total in savings goals</div>
+                <div class="piggy-card-val" id="goals-total">$0.00</div>
+              </div>
+              <div class="piggy-card-icon">🎯</div>
+            </div>
+          </div>
+
+          <div class="piggy-tx-section">
+            <div class="piggy-tx-hdr">// piggy_bank_history</div>
+            <div id="piggy-tx-list"><div class="empty">no piggy bank deposits yet</div></div>
+          </div>
+
+          <div class="section-label">// savings_goals</div>
+          <div class="form-block">
+            <div class="form-block-title">// new_savings_goal</div>
+            <div class="fields" style="margin-bottom:12px">
+              <div class="field"><label>Goal Name</label><input type="text" id="g-name" placeholder="e.g. New laptop"></div>
+              <div class="field"><label>Target ($)</label><input type="number" id="g-target" placeholder="1000" min="1"></div>
+            </div>
+            <button class="submit-btn" onclick="addGoal()">Create Goal</button>
+          </div>
+          <div id="goal-list">
+            <div class="empty" style="background:var(--bg3);border:1px solid var(--border2);border-radius:2px">no_goals_found</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase SDK -->
+  <script src="supabase.js"></script>
+
+  <!-- App logic -->
+  <script src="app.js"></script>
+
+  <!-- PWA service worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./sw.js');
+      });
+    }
+  </script>
+</body>
+</html>
