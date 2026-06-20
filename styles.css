@@ -384,7 +384,7 @@ body::before {
   color: var(--text3); background: var(--bg4); border-bottom: 1px solid var(--border);
 }
 .tx-row {
-  display: grid; grid-template-columns: 36px minmax(0,1fr) auto 32px;
+  display: grid; grid-template-columns: 36px minmax(0,1fr) auto auto;
   gap: 12px; padding: 12px 16px;
   align-items: center; border-bottom: 1px solid var(--border);
   transition: background .1s;
@@ -401,15 +401,54 @@ body::before {
 .tx-amt.g { color: var(--cyan); }
 .tx-amt.r { color: var(--pink); }
 .tx-amt.p { color: var(--green); }
-.del {
+.tx-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.del, .edit {
   width: 28px; height: 28px; border-radius: 2px;
   border: none; background: transparent; cursor: pointer;
-  color: var(--text3); font-size: 15px;
+  color: var(--text3); font-size: 14px;
   display: flex; align-items: center; justify-content: center;
   transition: all .15s;
 }
 .del:hover { background: var(--pink-dim); color: var(--pink); border: 1px solid var(--pink-muted); }
+.edit:hover { background: var(--cyan-dim); color: var(--cyan); border: 1px solid var(--cyan-muted); }
 .empty { padding: 3rem; text-align: center; color: var(--text3); font-family: 'Share Tech Mono', monospace; font-size: 12px; letter-spacing: .08em; }
+
+/* Inline transaction editing */
+.tx-row-editing {
+  display: block;
+  grid-template-columns: unset;
+  padding: 14px 16px;
+  background: var(--bg4);
+}
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.edit-input {
+  width: 100%; padding: 7px 9px;
+  border-radius: 2px; border: 1px solid var(--cyan-muted);
+  background: var(--bg3); color: var(--text);
+  font-family: 'Rajdhani', sans-serif; font-size: 13px;
+  outline: none;
+}
+.edit-input:focus { border-color: var(--cyan); }
+.edit-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.edit-save-btn {
+  padding: 7px 16px; border-radius: 2px;
+  border: 1px solid var(--cyan-muted); background: var(--cyan-dim);
+  color: var(--cyan); font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; cursor: pointer; transition: all .15s;
+}
+.edit-save-btn:hover { background: var(--cyan); color: var(--bg); }
+.edit-cancel-btn {
+  padding: 7px 16px; border-radius: 2px;
+  border: 1px solid var(--border2); background: transparent;
+  color: var(--text3); font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; cursor: pointer; transition: all .15s;
+}
+.edit-cancel-btn:hover { border-color: var(--text2); color: var(--text); }
 
 /* - Piggy Bank page - */
 .piggy-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.25rem; }
