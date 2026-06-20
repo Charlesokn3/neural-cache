@@ -4,7 +4,7 @@
    Caches all app files so Vault works fully offline.
  */
 
-var CACHE_NAME = 'neural-cache-v4';
+var CACHE_NAME = 'neural-cache-v5';
 
 // Every file the app needs to run
 var FILES_TO_CACHE = [
