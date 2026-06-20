@@ -480,7 +480,7 @@ function renderTx() {
   var inc=ptx.filter(function(t){ return t.type==='income'; }).reduce(function(s,t){ return s+t.amt; },0);
   var exp=ptx.filter(function(t){ return (t.type==='expense'&&t.split!=='piggy')||t.type==='goal'; }).reduce(function(s,t){ return s+t.amt; },0);
   var pig=ptx.filter(function(t){ return t.type==='expense'&&t.split==='piggy'; }).reduce(function(s,t){ return s+t.amt; },0);
-  var bal=getCurrentBalance();
+  var bal=inc-exp-pig;
 
   document.getElementById('s-inc').textContent=fmt(inc);
   document.getElementById('s-exp').textContent=fmt(exp);
