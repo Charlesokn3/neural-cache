@@ -16,6 +16,7 @@ var sidebarCollapsed = false;
 var toastTimer       = null;
 var clearPending     = false;
 var clearTimer       = null;
+var editingTxId      = null;
 var data             = { tx: [], goals: [] };
 
 
@@ -174,6 +175,17 @@ function saveTx(tx) {
     goal_id:     tx.goalId   || null,
     goal_name:   tx.goalName || null
   });
+}
+
+// - Update an existing transaction in Supabase -
+function updateTxInDB(tx) {
+  return sb.from('transactions').update({
+    description: tx.desc,
+    amount:      tx.amt,
+    category:    tx.cat,
+    split:       tx.split,
+    date:        tx.date
+  }).eq('id', tx.id).eq('user_id', currentUser.id);
 }
 
 // - Delete a transaction from Supabase -
@@ -371,6 +383,62 @@ function delTx(id) {
   });
 }
 
+// Edit transaction (inline)
+function startEditTx(id) {
+  var tx = data.tx.find(function(t){ return t.id===id; });
+  if (!tx || tx.type === 'goal') { notify('// this entry is managed from the piggy bank tab.'); return; }
+  editingTxId = id;
+  renderTx();
+}
+
+function cancelEditTx() {
+  editingTxId = null;
+  renderTx();
+}
+
+function saveEditTx(id) {
+  var tx = data.tx.find(function(t){ return t.id===id; });
+  if (!tx) return;
+
+  var desc  = document.getElementById('e-desc-'+id).value.trim();
+  var amt   = parseFloat(document.getElementById('e-amt-'+id).value);
+  var cat   = document.getElementById('e-cat-'+id) ? document.getElementById('e-cat-'+id).value : tx.cat;
+  var date  = document.getElementById('e-date-'+id).value;
+  var split = document.getElementById('e-split-'+id) ? document.getElementById('e-split-'+id).value : tx.split;
+
+  if (!desc || isNaN(amt) || amt<=0 || !date) { notify('// error: fill in all fields correctly.'); return; }
+
+  if (tx.type === 'expense') {
+    var balanceWithoutThis = getCurrentBalance() + tx.amt;
+    if (amt > balanceWithoutThis) {
+      notify('// blocked: exceeds balance.\nMax available for this edit is '+fmt(balanceWithoutThis)+'.');
+      return;
+    }
+  }
+  if (tx.type === 'income') {
+    var spentTotal = getTotalSpent();
+    var incomeWithoutThis = getTotalIncome() - tx.amt;
+    if (incomeWithoutThis + amt < spentTotal) {
+      notify('// blocked: this change would cause a deficit.\nIncrease the amount or remove some expenses first.');
+      return;
+    }
+  }
+
+  var updated = { id:id, desc:desc, amt:amt, cat:cat, date:date, split:split, type:tx.type };
+
+  updateTxInDB(updated).then(function(res){
+    if (res.error) { notify('// error updating: '+res.error.message); return; }
+    tx.desc  = desc;
+    tx.amt   = amt;
+    tx.cat   = cat;
+    tx.date  = date;
+    tx.split = split;
+    editingTxId = null;
+    renderTx();
+    renderPiggy();
+    notify('// transaction updated.', 'ok');
+  });
+}
 
 // SPLIT RENDERING
 
@@ -445,15 +513,56 @@ function renderTx() {
     return t.cat;
   }
 
-  list.innerHTML=dates.map(function(date){
-    var rows=groups[date].map(function(t){
-      return '<div class="tx-row">'+
-        '<div class="tx-dot '+dotCls(t)+'">'+iconHtml(t)+'</div>'+
-        '<div><div class="tx-name">'+t.desc+'</div><div class="tx-cat">'+tagText(t)+'</div></div>'+
-        '<div class="tx-amt '+amtCls(t)+'">'+amtSign(t)+fmt(t.amt)+'</div>'+
-        '<button class="del" onclick="delTx('+t.id+')" aria-label="Delete">&#x2715;</button>'+
-        '</div>';
+  var incomeCats  = ['Salary','Freelance','Investment','Other'];
+  var expenseCats = ['Food','Transport','Housing','Entertainment','Health','Shopping','Other'];
+
+  function catOptions(t) {
+    var cats = t.type==='income' ? incomeCats : expenseCats;
+    return cats.map(function(c){
+      return '<option'+(c===t.cat?' selected':'')+'>'+c+'</option>';
     }).join('');
+  }
+
+  function splitOptions(t) {
+    var opts = [['needs','Needs'],['wants','Wants'],['piggy','Piggy Bank']];
+    return opts.map(function(o){
+      return '<option value="'+o[0]+'"'+(o[0]===t.split?' selected':'')+'>'+o[1]+'</option>';
+    }).join('');
+  }
+
+  function renderRow(t) {
+    if (editingTxId === t.id) {
+      var splitField = t.type==='expense'
+        ? '<select id="e-split-'+t.id+'" class="edit-input">'+splitOptions(t)+'</select>'
+        : '';
+      return '<div class="tx-row tx-row-editing">'+
+        '<div class="edit-grid">'+
+          '<input type="text" id="e-desc-'+t.id+'" class="edit-input" value="'+t.desc.replace(/"/g,'&quot;')+'" placeholder="Description">'+
+          '<input type="number" id="e-amt-'+t.id+'" class="edit-input" value="'+t.amt+'" min="0.01" step="0.01" placeholder="Amount">'+
+          '<select id="e-cat-'+t.id+'" class="edit-input">'+catOptions(t)+'</select>'+
+          splitField+
+          '<input type="date" id="e-date-'+t.id+'" class="edit-input" value="'+t.date+'">'+
+        '</div>'+
+        '<div class="edit-actions">'+
+          '<button class="edit-save-btn" onclick="saveEditTx('+t.id+')">Save</button>'+
+          '<button class="edit-cancel-btn" onclick="cancelEditTx()">Cancel</button>'+
+        '</div>'+
+      '</div>';
+    }
+    var canEdit = t.type !== 'goal';
+    return '<div class="tx-row">'+
+      '<div class="tx-dot '+dotCls(t)+'">'+iconHtml(t)+'</div>'+
+      '<div><div class="tx-name">'+t.desc+'</div><div class="tx-cat">'+tagText(t)+'</div></div>'+
+      '<div class="tx-amt '+amtCls(t)+'">'+amtSign(t)+fmt(t.amt)+'</div>'+
+      '<div class="tx-row-actions">'+
+        (canEdit ? '<button class="edit" onclick="startEditTx('+t.id+')" aria-label="Edit">&#9998;</button>' : '') +
+        '<button class="del" onclick="delTx('+t.id+')" aria-label="Delete">&#x2715;</button>'+
+      '</div>'+
+      '</div>';
+  }
+
+  list.innerHTML=dates.map(function(date){
+    var rows=groups[date].map(renderRow).join('');
     return '<div class="tx-group-hdr">'+date+'</div>'+rows;
   }).join('');
 }
